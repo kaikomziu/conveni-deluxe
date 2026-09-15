@@ -72,73 +72,54 @@ body{
 .view{display:none;}
 .view.active{display:block;}
 
-/* ---- Queue ---- */
-.queue-wrap{margin-bottom:14px;}
-.queue-label{font-size:13px; font-weight:700; color:var(--sub); margin-bottom:6px;}
-.queue-row{
-  display:flex; gap:8px; overflow-x:auto; padding:8px 4px 10px;
-  min-height:78px;
-  background:var(--panel); border-radius:var(--radius); box-shadow:var(--shadow);
-  padding:10px;
+/* ---- Store floor (top-down view) ---- */
+.floor-label{font-size:13px; font-weight:700; color:var(--sub); margin-bottom:6px;}
+.store-floor{
+  position:relative; display:flex; flex-direction:column;
+  background:
+    repeating-linear-gradient(0deg, #eef3ef, #eef3ef 38px, #e6ede8 38px, #e6ede8 40px),
+    repeating-linear-gradient(90deg, #eef3ef, #eef3ef 38px, #e6ede8 38px, #e6ede8 40px);
+  border-radius:var(--radius); box-shadow:var(--shadow); border:1px solid var(--line);
+  overflow:hidden; margin-bottom:14px;
 }
-.queue-row:empty::after{
-  content:"お客さんが来るのを待っています…";
-  color:var(--sub); font-size:13px; align-self:center; padding:0 6px;
-}
-.cust{
-  flex:0 0 auto; width:58px; text-align:center; position:relative;
-}
-.cust.cust-new{animation:popIn .18s ease;}
-.cust .avatar{
-  font-size:28px; width:44px; height:44px; line-height:44px; margin:0 auto;
-  background:#f0f4f1; border-radius:50%; border:2px solid var(--line);
-}
-.cust.vip .avatar{border-color:var(--gold); background:#fff8e2; box-shadow:0 0 0 3px rgba(245,179,1,.25);}
-.cust .want{
-  font-size:16px; margin-top:2px;
-}
-.cust .patience-bar{
-  height:4px; background:var(--line); border-radius:2px; margin-top:3px; overflow:hidden;
-}
-.cust .patience-fill{height:100%; background:var(--green); transition:width .1s linear;}
-.cust.warn .patience-fill{background:var(--orange);}
-.cust.danger .patience-fill{background:var(--danger);}
-.vip-badge{position:absolute; top:-6px; right:-2px; font-size:13px;}
 
-/* ---- Counter / lanes ---- */
-.counter-wrap{margin-bottom:14px;}
-.counter-label{font-size:13px; font-weight:700; color:var(--sub); margin-bottom:6px;}
-.lanes-row{display:grid; grid-template-columns:1fr; gap:10px;}
+/* registers viewed from above, lined up along the back wall */
+.floor-counters{
+  display:flex; gap:8px; padding:10px;
+  background:linear-gradient(180deg, #d3e6d9, rgba(211,230,217,0));
+  border-bottom:2px dashed rgba(8,122,82,.18);
+}
 .lane{
-  background:var(--panel); border-radius:var(--radius); box-shadow:var(--shadow);
-  padding:14px; display:flex; align-items:center; gap:14px; min-height:92px;
-  border:2px solid transparent; position:relative; overflow:hidden;
+  flex:1; min-width:0; background:var(--panel); border-radius:12px; box-shadow:var(--shadow);
+  padding:8px 6px; min-height:104px;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+  border:2px solid transparent; position:relative; text-align:center;
 }
 .lane.locked{
   background:repeating-linear-gradient(45deg,#eee,#eee 10px,#e4e4e4 10px,#e4e4e4 20px);
-  color:var(--sub); justify-content:center; font-size:13px; font-weight:700;
+  color:var(--sub); font-size:10.5px; font-weight:700; line-height:1.4; padding:4px;
 }
-.lane.empty{justify-content:center; color:var(--sub); font-size:13px;}
+.lane.empty{color:var(--sub); font-size:11px;}
 .lane.active-scan{border-color:var(--green); cursor:pointer;}
 .lane.baito-lane{border-color:#8ec8ff;}
 .lane .scan-ring{
-  width:64px; height:64px; border-radius:50%; flex:0 0 auto;
+  width:48px; height:48px; border-radius:50%; flex:0 0 auto;
   display:flex; align-items:center; justify-content:center;
   background:conic-gradient(var(--green) calc(var(--p,0)*360deg), #e7ede9 0);
   position:relative;
 }
 .lane.baito-lane .scan-ring{background:conic-gradient(#4b9bff calc(var(--p,0)*360deg), #e7ede9 0);}
 .lane .scan-ring::after{
-  content:""; position:absolute; inset:5px; background:#fff; border-radius:50%;
+  content:""; position:absolute; inset:4px; background:#fff; border-radius:50%;
 }
-.lane .scan-item-emoji{position:relative; font-size:26px; z-index:1;}
-.lane .lane-info{flex:1; min-width:0;}
-.lane .lane-item-name{font-weight:800; font-size:14px;}
-.lane .lane-price{color:var(--sub); font-size:12px;}
-.lane .lane-hint{font-size:11px; color:var(--green-dark); font-weight:700; margin-top:2px;}
+.lane .scan-item-emoji{position:relative; font-size:19px; z-index:1;}
+.lane .lane-info{min-width:0; width:100%;}
+.lane .lane-item-name{font-weight:800; font-size:11px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.lane .lane-price{color:var(--sub); font-size:10.5px;}
+.lane .lane-hint{font-size:9.5px; color:var(--green-dark); font-weight:700;}
 .lane .baito-tag{
-  position:absolute; top:8px; right:10px; font-size:10px; font-weight:800;
-  background:#e7f1ff; color:#2b6fd1; padding:2px 8px; border-radius:999px;
+  position:absolute; top:4px; right:6px; font-size:8.5px; font-weight:800;
+  background:#e7f1ff; color:#2b6fd1; padding:1px 6px; border-radius:999px;
 }
 .lane.pressed{background:#eafff2;}
 .lane.lane-arrive{animation:laneArrive .5s ease;}
@@ -147,7 +128,41 @@ body{
   30%{box-shadow:0 0 0 8px rgba(10,166,110,0); transform:scale(1.02);}
   100%{box-shadow:0 0 0 0 rgba(10,166,110,0); transform:scale(1);}
 }
-.lane .vip-badge-lane{position:absolute; top:8px; left:10px; font-size:14px;}
+.lane .vip-badge-lane{position:absolute; top:4px; left:6px; font-size:12px;}
+
+/* open floor between the entrance and the registers, viewed from above */
+.floor-walkarea{position:relative; min-height:230px; flex:1;}
+.floor-shelves{position:absolute; inset:0; pointer-events:none;}
+.shelf{
+  position:absolute; width:32px; height:32px; margin-top:-16px; border-radius:8px;
+  background:#fff; border:2px solid var(--line); box-shadow:var(--shadow);
+  display:flex; align-items:center; justify-content:center; font-size:15px;
+}
+
+.queue-dots{position:absolute; inset:0;}
+.cust{
+  position:absolute; width:40px; text-align:center; transform:translate(-50%,-50%);
+  transition:top .35s ease, left .35s ease;
+}
+.cust.cust-new{animation:popIn .18s ease;}
+.cust .avatar{
+  font-size:19px; width:36px; height:36px; line-height:33px; margin:0 auto;
+  background:#fff; border-radius:50%; border:3px solid var(--green); box-shadow:var(--shadow);
+  transition:border-color .2s;
+}
+.cust.warn .avatar{border-color:var(--orange);}
+.cust.danger .avatar{border-color:var(--danger);}
+.cust.vip .avatar{border-color:var(--gold); box-shadow:0 0 0 3px rgba(245,179,1,.25);}
+.cust .want-badge{
+  position:absolute; right:-3px; bottom:-3px; width:17px; height:17px; border-radius:50%;
+  background:#fff; border:1px solid var(--line); font-size:10px; line-height:15px;
+}
+.vip-badge{position:absolute; top:-8px; left:-2px; font-size:12px;}
+
+.floor-entrance{
+  text-align:center; padding:7px; font-size:11.5px; font-weight:700; color:var(--sub);
+  background:#fff; border-top:2px dashed rgba(0,0,0,.08);
+}
 
 /* ---- shop stats ---- */
 .shop-stats{display:flex; gap:8px;}
@@ -277,7 +292,3 @@ body{
 .tut-dots span{width:7px; height:7px; border-radius:50%; background:var(--line);}
 .tut-dots span.on{background:var(--green);}
 .tut-nav{display:flex; gap:8px;}
-
-@media(min-width:520px){
-  .lanes-row{grid-template-columns:repeat(2,1fr);}
-}

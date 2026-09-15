@@ -300,6 +300,7 @@ function render(){
   repDisplay.textContent = `⭐ ${Math.round(S.reputation)}`;
   queueCount.textContent = S.queue.length;
 
+  renderShelves();
   renderQueue();
   renderLanes();
 
@@ -308,44 +309,71 @@ function render(){
   $('#statLost').textContent = S.customersLost;
 }
 
+// Customers queue up single-file from the entrance (bottom) toward the registers
+// (top), with a gentle left/right stagger so the line doesn't look robotic.
+function custDotTop(index){ return Math.min(88, 8 + index*13) + '%'; }
+function custDotLeft(index){ return (50 + ((index%3)-1)*9) + '%'; }
+
 let queueSignature = '';
 function renderQueue(){
   const sig = S.queue.map(c=>c.id).join(',');
   if(sig !== queueSignature){
     queueSignature = sig;
     queueRow.innerHTML = '';
-    for(const c of S.queue){
+    S.queue.forEach((c, i)=>{
       const p = PRODUCT_MAP[c.itemId];
       const div = document.createElement('div');
       div.className = 'cust cust-new';
       div.dataset.custId = c.id;
+      div.style.top = custDotTop(i);
+      div.style.left = custDotLeft(i);
       div.innerHTML = `
         ${c.isVIP?'<div class="vip-badge">👑</div>':''}
         <div class="avatar">${c.avatar}</div>
-        <div class="want">${p.emoji}${c.qty>1?`×${c.qty}`:''}</div>
-        <div class="patience-bar"><div class="patience-fill"></div></div>
+        <div class="want-badge">${p.emoji}${c.qty>1?`<span style="font-size:7px;">×${c.qty}</span>`:''}</div>
       `;
       updateCustEl(div, c);
       queueRow.appendChild(div);
       setTimeout(()=>div.classList.remove('cust-new'), 220);
-    }
+    });
   } else {
     const children = queueRow.children;
     for(let i=0; i<S.queue.length; i++){
+      children[i].style.top = custDotTop(i);
+      children[i].style.left = custDotLeft(i);
       updateCustEl(children[i], S.queue[i]);
     }
   }
 }
 // Only ever toggles individual modifier classes (never overwrites the whole
 // className string) so the one-shot pop-in animation is never restarted by
-// the per-tick patience-bar update.
+// the per-tick patience update.
 function updateCustEl(div, c){
   const ratio = c.patienceLeft / c.patienceMax;
   div.classList.toggle('vip', !!c.isVIP);
   div.classList.toggle('warn', ratio<0.5);
   div.classList.toggle('danger', ratio<0.22);
-  const fill = div.querySelector('.patience-fill');
-  if(fill) fill.style.width = Math.max(0,ratio*100) + '%';
+}
+
+let shelfSignature = '';
+function renderShelves(){
+  const sig = PRODUCTS.filter(p=>S.unlocked[p.id]).map(p=>p.id).join(',');
+  if(sig === shelfSignature) return;
+  shelfSignature = sig;
+  const box = $('#floorShelves');
+  box.innerHTML = '';
+  const list = PRODUCTS.filter(p=>S.unlocked[p.id] && p.id!=='onigiri');
+  list.forEach((p,i)=>{
+    const side = i%2===0 ? 'left' : 'right';
+    const col = Math.floor(i/2);
+    const div = document.createElement('div');
+    div.className = 'shelf';
+    div.style[side] = '5%';
+    div.style.top = (14 + col*17) + '%';
+    div.textContent = p.emoji;
+    div.title = p.name;
+    box.appendChild(div);
+  });
 }
 
 let laneSignature = ['','',''];
@@ -356,7 +384,7 @@ function renderLanes(){
         laneSignature[i] = 'locked';
         const div = document.createElement('div');
         div.className = 'lane locked';
-        div.textContent = `🔒 未設置のレジ (PCの「設備」から増設)`;
+        div.textContent = `🔒 未設置`;
         replaceLaneEl(i, div);
       }
       continue;
@@ -370,7 +398,7 @@ function renderLanes(){
       div.dataset.lane = i;
       if(!lane.customer){
         div.className = 'lane empty' + (isBaito?' baito-lane':'');
-        div.innerHTML = `<span>${isBaito?'👷 バイト待機中':'お客さん待ち…'}</span>` + (isBaito?'<div class="baito-tag">STAFF</div>':'');
+        div.innerHTML = `<span>${isBaito?'👷 待機中':'空席'}</span>` + (isBaito?'<div class="baito-tag">STAFF</div>':'');
       } else {
         const p = PRODUCT_MAP[lane.customer.itemId];
         const price = custPrice(lane.customer);
@@ -383,7 +411,7 @@ function renderLanes(){
           <div class="lane-info">
             <div class="lane-item-name">${p.name}${qtyTxt}${lane.customer.isVIP?' <b style="color:#c9950a">VIP</b>':''}</div>
             <div class="lane-price">${fmtMoneyFull(price)}</div>
-            <div class="lane-hint">${isBaito?'自動スキャン中…':'長押しでスキャン'}</div>
+            <div class="lane-hint">${isBaito?'自動中…':'長押し'}</div>
           </div>
         `;
       }

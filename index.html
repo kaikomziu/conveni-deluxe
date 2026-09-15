@@ -36,14 +36,15 @@
     <!-- ============ SHOP VIEW ============ -->
     <section id="shopView" class="view active">
 
-      <div class="queue-wrap">
-        <div class="queue-label">お客さんの列 <span id="queueCount">0</span>/<span id="queueMax">6</span></div>
-        <div class="queue-row" id="queueRow"></div>
-      </div>
+      <div class="floor-label">上から見た店内 ・ お客さんの列 <span id="queueCount">0</span>/<span id="queueMax">6</span></div>
 
-      <div class="counter-wrap">
-        <div class="counter-label">レジカウンター</div>
-        <div class="lanes-row" id="lanesRow"></div>
+      <div class="store-floor" id="storeFloor">
+        <div class="floor-counters" id="lanesRow"></div>
+        <div class="floor-walkarea">
+          <div class="floor-shelves" id="floorShelves"></div>
+          <div class="queue-dots" id="queueRow"></div>
+        </div>
+        <div class="floor-entrance">🚪 入口</div>
       </div>
 
       <div class="shop-stats">
