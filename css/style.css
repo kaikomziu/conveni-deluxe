@@ -62,6 +62,10 @@ body{
   cursor:pointer; transition:background .15s;
 }
 .tab-btn.active{background:#fff; color:var(--green-dark);}
+.help-btn{
+  flex:0 0 auto; width:38px; padding:0; border-radius:10px; border:none;
+  background:rgba(255,255,255,.12); color:#fff; font-weight:800; font-size:15px; cursor:pointer;
+}
 
 /* ===== Main / views ===== */
 #main{flex:1; padding:14px;}
@@ -229,6 +233,17 @@ body{
   border:none; background:var(--green); color:#fff; font-weight:800; font-size:14px;
   padding:11px 20px; border-radius:12px; cursor:pointer; width:100%;
 }
+.modal-close.secondary{background:#eef2ef; color:var(--sub);}
+.modal-skip{
+  position:absolute; top:14px; right:14px; border:none; background:none; color:var(--sub);
+  font-size:12px; font-weight:700; cursor:pointer; padding:4px 6px;
+}
+.modal-box{position:relative;}
+.tut-icon{font-size:46px; margin-bottom:6px;}
+.tut-dots{display:flex; justify-content:center; gap:6px; margin-bottom:14px;}
+.tut-dots span{width:7px; height:7px; border-radius:50%; background:var(--line);}
+.tut-dots span.on{background:var(--green);}
+.tut-nav{display:flex; gap:8px;}
 
 @media(min-width:520px){
   .lanes-row{grid-template-columns:repeat(2,1fr);}

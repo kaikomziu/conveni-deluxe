@@ -55,6 +55,16 @@ const EQUIP = {
 
 const AVATARS = ['🧑','👩','👨','🧑‍🦱','👵','👴','🧑‍🎓','👩‍🦰','🧔','👩‍🦳'];
 const VIP_AVATARS = ['🤵','👸','🕴️'];
+const QTY_WEIGHTS = [ {q:1,weight:65}, {q:2,weight:25}, {q:3,weight:10} ];
+
+const TUTORIAL_STEPS = [
+  { icon:'🏪', title:'ようこそ CONVENI DELUXEへ', body:'あなたは今日からコンビニの店長。売っているのは「おにぎり」1種類だけ…この小さなお店を、少しずつ大きくしていこう。' },
+  { icon:'👆', title:'長押しでスキャン', body:'レジにお客さんが来たら、そのレジを長押ししよう。押し続けると輪っかが満タンになり、会計完了でお金がもらえる。途中で指を離すと進み具合が減ってしまうので注意。' },
+  { icon:'⏳', title:'お客さんは気が短い', body:'列で待つお客さんには忍耐ゲージがある。待たせすぎると怒って帰ってしまい、お店の評判(⭐)も下がってしまう。手早く対応しよう。' },
+  { icon:'👑', title:'VIPとまとめ買い', body:'たまに来るVIP客は購入額が豪華。さらにお客さんは「おにぎり×3」のようにまとめ買いすることもあり、個数が多いほどスキャンに時間がかかるぶん実入りも大きい。' },
+  { icon:'💻', title:'PCでお店を強化', body:'貯まったお金は「PC」画面で使おう。新商品の仕入れ、スキャン速度や集客力などの設備投資、そしてレジを自動化してくれる「バイト」の雇用ができる。' },
+  { icon:'🌙', title:'さあ、開店しよう', body:'バイトを雇えば、あなたが離席している間もお店は自動で稼いでくれる。焦らずコツコツお店を育てていこう！' },
+];
 
 /* =========================================================
    Formulas
@@ -66,6 +76,15 @@ function priceMult(lv){ return 1 + lv*0.08; }
 function vipChance(lv){ return Math.min(0.30, 0.05 + lv*0.025); }
 function vipMultiplier(lv){ return 4 + lv*0.5; }
 function baitoDuration(lv){ return Math.max(850, 2600 - lv*220); }
+function qtyDurationMult(qty){ return 1 + (qty-1)*0.6; }
+function custScanDuration(cust){ return scanDuration(S.equip.scanSpeed) * qtyDurationMult(cust.qty); }
+function custBaitoDuration(cust){ return baitoDuration(S.equip.baitoSpeed) * qtyDurationMult(cust.qty); }
+function custPrice(cust){
+  const product = PRODUCT_MAP[cust.itemId];
+  let price = product.price * cust.qty * priceMult(S.equip.priceMultiplier);
+  if(cust.isVIP) price *= vipMultiplier(S.equip.vipBonus);
+  return Math.round(price);
+}
 function equipCost(key, lv){
   const e = EQUIP[key];
   return Math.round(e.baseCost * Math.pow(e.costMult, lv) / 10) * 10;
@@ -93,6 +112,7 @@ function freshState(){
     queue: [],
     spawnTimer: 3000,
     lastSave: Date.now(),
+    tutorialSeen: false,
   };
 }
 function laneObj(){ return { customer:null, progress:0, holding:false }; }
@@ -167,10 +187,12 @@ function spawnCustomer(){
   } else {
     product = pickWeighted(unlockedList);
   }
+  const qty = pickWeighted(QTY_WEIGHTS).q;
   const basePatience = patienceMs(S.equip.patience) * (isVIP?1.4:1) * (0.85 + Math.random()*0.3);
   S.queue.push({
     id: nextCustId++,
     itemId: product.id,
+    qty,
     isVIP,
     avatar: isVIP ? VIP_AVATARS[Math.floor(Math.random()*VIP_AVATARS.length)] : AVATARS[Math.floor(Math.random()*AVATARS.length)],
     patienceMax: basePatience,
@@ -181,15 +203,14 @@ function spawnCustomer(){
 function completeSale(lane){
   const cust = lane.customer;
   const product = PRODUCT_MAP[cust.itemId];
-  let price = product.price * priceMult(S.equip.priceMultiplier);
-  if(cust.isVIP) price *= vipMultiplier(S.equip.vipBonus);
-  price = Math.round(price);
+  const price = custPrice(cust);
   S.money += price;
   S.totalEarned += price;
   S.customersServed++;
   S.reputation = Math.min(100, S.reputation + (cust.isVIP?3:1));
   spawnFloatText(lane._el, `+¥${price.toLocaleString()}`, cust.isVIP);
-  if(cust.isVIP) toast(`👑 VIPが ${product.name} を購入！ +¥${price.toLocaleString()}`, 'vip');
+  const qtyTxt = cust.qty>1 ? `×${cust.qty}` : '';
+  if(cust.isVIP) toast(`👑 VIPが ${product.name}${qtyTxt} を購入！ +¥${price.toLocaleString()}`, 'vip');
   lane.customer = null;
   lane.progress = 0;
 }
@@ -231,11 +252,11 @@ function tick(){
     if(lane.customer){
       const isBaito = S.baito[i];
       if(isBaito){
-        lane.progress += TICK / baitoDuration(S.equip.baitoSpeed);
+        lane.progress += TICK / custBaitoDuration(lane.customer);
       } else if(lane.holding){
-        lane.progress += TICK / scanDuration(S.equip.scanSpeed);
+        lane.progress += TICK / custScanDuration(lane.customer);
       } else {
-        lane.progress -= TICK / scanDuration(S.equip.scanSpeed) * 0.55;
+        lane.progress -= TICK / custScanDuration(lane.customer) * 0.55;
       }
       lane.progress = Math.max(0, Math.min(1, lane.progress));
       if(lane.progress >= 1){
@@ -280,60 +301,94 @@ function render(){
   $('#statLost').textContent = S.customersLost;
 }
 
+let queueSignature = '';
 function renderQueue(){
-  queueRow.innerHTML = '';
-  for(const c of S.queue){
-    const p = PRODUCT_MAP[c.itemId];
-    const ratio = c.patienceLeft / c.patienceMax;
-    const div = document.createElement('div');
-    div.className = 'cust' + (c.isVIP?' vip':'') + (ratio<0.5?' warn':'') + (ratio<0.22?' danger':'');
-    div.innerHTML = `
-      ${c.isVIP?'<div class="vip-badge">👑</div>':''}
-      <div class="avatar">${c.avatar}</div>
-      <div class="want">${p.emoji}</div>
-      <div class="patience-bar"><div class="patience-fill" style="width:${Math.max(0,ratio*100)}%"></div></div>
-    `;
-    queueRow.appendChild(div);
+  const sig = S.queue.map(c=>c.id).join(',');
+  if(sig !== queueSignature){
+    queueSignature = sig;
+    queueRow.innerHTML = '';
+    for(const c of S.queue){
+      const p = PRODUCT_MAP[c.itemId];
+      const div = document.createElement('div');
+      div.dataset.custId = c.id;
+      div.innerHTML = `
+        ${c.isVIP?'<div class="vip-badge">👑</div>':''}
+        <div class="avatar">${c.avatar}</div>
+        <div class="want">${p.emoji}${c.qty>1?`×${c.qty}`:''}</div>
+        <div class="patience-bar"><div class="patience-fill"></div></div>
+      `;
+      updateCustEl(div, c);
+      queueRow.appendChild(div);
+    }
+  } else {
+    const children = queueRow.children;
+    for(let i=0; i<S.queue.length; i++){
+      updateCustEl(children[i], S.queue[i]);
+    }
   }
 }
+function updateCustEl(div, c){
+  const ratio = c.patienceLeft / c.patienceMax;
+  div.className = 'cust' + (c.isVIP?' vip':'') + (ratio<0.5?' warn':'') + (ratio<0.22?' danger':'');
+  const fill = div.querySelector('.patience-fill');
+  if(fill) fill.style.width = Math.max(0,ratio*100) + '%';
+}
 
+let laneSignature = ['','',''];
 function renderLanes(){
-  lanesRow.innerHTML = '';
   for(let i=0; i<MAX_LANES; i++){
-    const div = document.createElement('div');
     if(i >= S.registerCount){
-      div.className = 'lane locked';
-      div.textContent = `🔒 未設置のレジ (PCの「設備」から増設)`;
-      lanesRow.appendChild(div);
+      if(laneSignature[i] !== 'locked'){
+        laneSignature[i] = 'locked';
+        const div = document.createElement('div');
+        div.className = 'lane locked';
+        div.textContent = `🔒 未設置のレジ (PCの「設備」から増設)`;
+        replaceLaneEl(i, div);
+      }
       continue;
     }
     const lane = S.lanes[i];
     const isBaito = S.baito[i];
-    div.className = 'lane' + (isBaito?' baito-lane':'') + (lane.customer && !isBaito ? ' active-scan':'') + (lane.holding?' pressed':'');
-    if(!lane.customer){
-      div.classList.add('empty');
-      div.innerHTML = `<span>${isBaito?'👷 バイト待機中':'お客さん待ち…'}</span>` + (isBaito?'<div class="baito-tag">STAFF</div>':'');
-    } else {
-      const p = PRODUCT_MAP[lane.customer.itemId];
-      const price = Math.round(p.price * priceMult(S.equip.priceMultiplier) * (lane.customer.isVIP?vipMultiplier(S.equip.vipBonus):1));
-      div.innerHTML = `
-        ${isBaito?'<div class="baito-tag">STAFF</div>':''}
-        ${lane.customer.isVIP?'<div class="vip-badge-lane">👑</div>':''}
-        <div class="scan-ring" style="--p:${lane.progress}"><span class="scan-item-emoji">${p.emoji}</span></div>
-        <div class="lane-info">
-          <div class="lane-item-name">${p.name}${lane.customer.isVIP?' <b style="color:#c9950a">VIP</b>':''}</div>
-          <div class="lane-price">${fmtMoneyFull(price)}</div>
-          <div class="lane-hint">${isBaito?'自動スキャン中…':'長押しでスキャン'}</div>
-        </div>
-      `;
+    const sig = `${isBaito}|${lane.customer?lane.customer.id:'-'}`;
+    if(laneSignature[i] !== sig){
+      laneSignature[i] = sig;
+      const div = document.createElement('div');
+      div.dataset.lane = i;
+      if(!lane.customer){
+        div.className = 'lane empty' + (isBaito?' baito-lane':'');
+        div.innerHTML = `<span>${isBaito?'👷 バイト待機中':'お客さん待ち…'}</span>` + (isBaito?'<div class="baito-tag">STAFF</div>':'');
+      } else {
+        const p = PRODUCT_MAP[lane.customer.itemId];
+        const price = custPrice(lane.customer);
+        const qtyTxt = lane.customer.qty>1 ? ` ×${lane.customer.qty}` : '';
+        div.className = 'lane' + (isBaito?' baito-lane':' active-scan');
+        div.innerHTML = `
+          ${isBaito?'<div class="baito-tag">STAFF</div>':''}
+          ${lane.customer.isVIP?'<div class="vip-badge-lane">👑</div>':''}
+          <div class="scan-ring" style="--p:0"><span class="scan-item-emoji">${p.emoji}</span></div>
+          <div class="lane-info">
+            <div class="lane-item-name">${p.name}${qtyTxt}${lane.customer.isVIP?' <b style="color:#c9950a">VIP</b>':''}</div>
+            <div class="lane-price">${fmtMoneyFull(price)}</div>
+            <div class="lane-hint">${isBaito?'自動スキャン中…':'長押しでスキャン'}</div>
+          </div>
+        `;
+      }
+      replaceLaneEl(i, div);
     }
-    lane._el = div;
-    div.dataset.lane = i;
-    lanesRow.appendChild(div);
-    lane._el = div;
+    // cosmetic per-tick updates (no structural rebuild)
+    const el = S.lanes[i]._el;
+    if(el && lane.customer){
+      const ring = el.querySelector('.scan-ring');
+      if(ring) ring.style.setProperty('--p', lane.progress);
+      el.classList.toggle('pressed', !!lane.holding);
+    }
   }
-  // reattach references for float text after innerHTML rebuild
-  for(let i=0;i<S.registerCount;i++) S.lanes[i]._el = lanesRow.children[i];
+}
+function replaceLaneEl(i, div){
+  const old = lanesRow.children[i];
+  if(old) lanesRow.replaceChild(div, old);
+  else lanesRow.appendChild(div);
+  if(i < S.registerCount) S.lanes[i]._el = div;
 }
 
 /* =========================================================
@@ -615,11 +670,45 @@ $('#offlineClose').addEventListener('click', ()=>{
 });
 
 /* =========================================================
+   Tutorial
+   ========================================================= */
+let tutStep = 0;
+function renderTutStep(){
+  const step = TUTORIAL_STEPS[tutStep];
+  $('#tutIcon').textContent = step.icon;
+  $('#tutTitle').textContent = step.title;
+  $('#tutBody').textContent = step.body;
+  $('#tutDots').innerHTML = TUTORIAL_STEPS.map((_,i)=>`<span class="${i===tutStep?'on':''}"></span>`).join('');
+  $('#tutPrev').style.visibility = tutStep===0 ? 'hidden' : 'visible';
+  $('#tutNext').textContent = tutStep === TUTORIAL_STEPS.length-1 ? '開店する！' : 'つぎへ';
+}
+function openTutorial(){
+  tutStep = 0;
+  renderTutStep();
+  $('#tutorialModal').classList.remove('hidden');
+}
+function closeTutorial(){
+  $('#tutorialModal').classList.add('hidden');
+  if(!S.tutorialSeen){ S.tutorialSeen = true; save(); }
+}
+$('#tutPrev').addEventListener('click', ()=>{ if(tutStep>0){ tutStep--; renderTutStep(); } });
+$('#tutNext').addEventListener('click', ()=>{
+  if(tutStep < TUTORIAL_STEPS.length-1){ tutStep++; renderTutStep(); }
+  else closeTutorial();
+});
+$('#tutorialSkip').addEventListener('click', closeTutorial);
+$('#helpBtn').addEventListener('click', openTutorial);
+
+/* =========================================================
    Boot
    ========================================================= */
 render();
 renderPC();
-showOfflineModalIfNeeded();
+if(!S.tutorialSeen){
+  openTutorial();
+} else {
+  showOfflineModalIfNeeded();
+}
 setInterval(tick, TICK);
 setInterval(save, 5000);
 window.addEventListener('beforeunload', save);
