@@ -197,7 +197,10 @@ function spawnCustomer(){
     avatar: isVIP ? VIP_AVATARS[Math.floor(Math.random()*VIP_AVATARS.length)] : AVATARS[Math.floor(Math.random()*AVATARS.length)],
     patienceMax: basePatience,
     patienceLeft: basePatience,
-    arrivalGrace: 500, // ms the customer spends visibly walking up before they can be called to a register
+    // ms spent walking the floor before being callable to a register: first they
+    // head to their item's shelf (grace > SHOP_GRACE_THRESHOLD), then walk over
+    // and join the register line (grace <= SHOP_GRACE_THRESHOLD)
+    arrivalGrace: 1300,
   });
 }
 
@@ -309,10 +312,37 @@ function render(){
   $('#statLost').textContent = S.customersLost;
 }
 
-// Customers queue up single-file from the entrance (bottom) toward the registers
-// (top), with a gentle left/right stagger so the line doesn't look robotic.
-function custDotTop(index){ return Math.min(88, 8 + index*13) + '%'; }
-function custDotLeft(index){ return (50 + ((index%3)-1)*9) + '%'; }
+// Fixed floor slot (in % of the walk area) for each product's shelf — a stable
+// layout regardless of unlock order, so a given item always lives in the same spot.
+const SHELF_SLOTS = {
+  onigiri:  { left:12, top:16 },
+  pan:      { left:12, top:33 },
+  bento:    { left:12, top:50 },
+  fried:    { left:12, top:67 },
+  magazine: { left:12, top:84 },
+  drink:    { left:88, top:16 },
+  sweets:   { left:88, top:33 },
+  icecream: { left:88, top:50 },
+  coffee:   { left:88, top:67 },
+  lottery:  { left:88, top:84 },
+};
+// Customers queue up single-file toward the registers (top), with a gentle
+// left/right stagger so the line doesn't look robotic.
+function custDotTop(index){ return Math.min(82, 20 + index*12); }
+function custDotLeft(index){ return 50 + ((index%3)-1)*9; }
+const ENTER_TOP = 95, ENTER_LEFT = 50;
+const SHOP_GRACE_THRESHOLD = 500; // above this: still walking to / browsing the shelf
+
+// A customer's on-floor position: fresh arrivals head for their item's shelf
+// first, then walk over to join the register line once they've "picked it up".
+function custFloorPos(c, queueIndex){
+  if(c.arrivalGrace > SHOP_GRACE_THRESHOLD){
+    const slot = SHELF_SLOTS[c.itemId] || { left:50, top:50 };
+    const jitter = ((c.id % 3) - 1) * 3; // avoid perfect overlap when several customers share a shelf
+    return { top: slot.top, left: slot.left + jitter };
+  }
+  return { top: custDotTop(queueIndex), left: custDotLeft(queueIndex) };
+}
 
 let queueSignature = '';
 function renderQueue(){
@@ -325,12 +355,14 @@ function renderQueue(){
       const div = document.createElement('div');
       div.className = 'cust cust-new';
       div.dataset.custId = c.id;
-      div.style.top = custDotTop(i);
-      div.style.left = custDotLeft(i);
+      // start at the entrance; the very next tick eases them toward their target
+      // so the walk is a visible CSS transition rather than a jump-cut
+      div.style.top = ENTER_TOP + '%';
+      div.style.left = ENTER_LEFT + '%';
       div.innerHTML = `
         ${c.isVIP?'<div class="vip-badge">👑</div>':''}
         <div class="avatar">${c.avatar}</div>
-        <div class="want-badge">${p.emoji}${c.qty>1?`<span style="font-size:7px;">×${c.qty}</span>`:''}</div>
+        <div class="want-badge">${p.emoji}${c.qty>1?`×${c.qty}`:''}</div>
       `;
       updateCustEl(div, c);
       queueRow.appendChild(div);
@@ -339,8 +371,9 @@ function renderQueue(){
   } else {
     const children = queueRow.children;
     for(let i=0; i<S.queue.length; i++){
-      children[i].style.top = custDotTop(i);
-      children[i].style.left = custDotLeft(i);
+      const pos = custFloorPos(S.queue[i], i);
+      children[i].style.top = pos.top + '%';
+      children[i].style.left = pos.left + '%';
       updateCustEl(children[i], S.queue[i]);
     }
   }
@@ -362,14 +395,14 @@ function renderShelves(){
   shelfSignature = sig;
   const box = $('#floorShelves');
   box.innerHTML = '';
-  const list = PRODUCTS.filter(p=>S.unlocked[p.id] && p.id!=='onigiri');
-  list.forEach((p,i)=>{
-    const side = i%2===0 ? 'left' : 'right';
-    const col = Math.floor(i/2);
+  const list = PRODUCTS.filter(p=>S.unlocked[p.id]);
+  list.forEach(p=>{
+    const slot = SHELF_SLOTS[p.id];
+    if(!slot) return;
     const div = document.createElement('div');
     div.className = 'shelf';
-    div.style[side] = '5%';
-    div.style.top = (14 + col*17) + '%';
+    div.style.left = slot.left + '%';
+    div.style.top = slot.top + '%';
     div.textContent = p.emoji;
     div.title = p.name;
     box.appendChild(div);

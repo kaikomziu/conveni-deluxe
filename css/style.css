@@ -131,10 +131,10 @@ body{
 .lane .vip-badge-lane{position:absolute; top:4px; left:6px; font-size:12px;}
 
 /* open floor between the entrance and the registers, viewed from above */
-.floor-walkarea{position:relative; min-height:230px; flex:1;}
+.floor-walkarea{position:relative; min-height:320px; flex:1;}
 .floor-shelves{position:absolute; inset:0; pointer-events:none;}
 .shelf{
-  position:absolute; width:32px; height:32px; margin-top:-16px; border-radius:8px;
+  position:absolute; width:32px; height:32px; transform:translate(-50%,-50%); border-radius:8px;
   background:#fff; border:2px solid var(--line); box-shadow:var(--shadow);
   display:flex; align-items:center; justify-content:center; font-size:15px;
 }
@@ -142,7 +142,7 @@ body{
 .queue-dots{position:absolute; inset:0;}
 .cust{
   position:absolute; width:40px; text-align:center; transform:translate(-50%,-50%);
-  transition:top .35s ease, left .35s ease;
+  transition:top .5s ease, left .5s ease; z-index:2;
 }
 .cust.cust-new{animation:popIn .18s ease;}
 .cust .avatar{
@@ -154,8 +154,9 @@ body{
 .cust.danger .avatar{border-color:var(--danger);}
 .cust.vip .avatar{border-color:var(--gold); box-shadow:0 0 0 3px rgba(245,179,1,.25);}
 .cust .want-badge{
-  position:absolute; right:-3px; bottom:-3px; width:17px; height:17px; border-radius:50%;
-  background:#fff; border:1px solid var(--line); font-size:10px; line-height:15px;
+  position:absolute; right:-6px; bottom:-4px; min-width:16px; height:16px; padding:0 3px;
+  border-radius:8px; background:#fff; border:1px solid var(--line); font-size:9px;
+  line-height:14px; white-space:nowrap;
 }
 .vip-badge{position:absolute; top:-8px; left:-2px; font-size:12px;}
 
