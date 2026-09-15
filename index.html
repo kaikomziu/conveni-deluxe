@@ -65,12 +65,26 @@
           <button class="pc-tab-btn active" data-pctab="products">📦 商品</button>
           <button class="pc-tab-btn" data-pctab="equip">🛠️ 設備</button>
           <button class="pc-tab-btn" data-pctab="staff">👷 人材</button>
+          <button class="pc-tab-btn" data-pctab="ranking">🏆 ランキング</button>
           <button class="pc-tab-btn" data-pctab="settings">⚙️ 設定</button>
         </nav>
         <div class="pc-body">
           <div class="pc-panel active" id="panelProducts"></div>
           <div class="pc-panel" id="panelEquip"></div>
           <div class="pc-panel" id="panelStaff"></div>
+          <div class="pc-panel" id="panelRanking">
+            <div class="rank-dept-tabs">
+              <button class="rank-dept-btn active" data-dept="earned">💴 売上部門</button>
+              <button class="rank-dept-btn" data-dept="served">🧑‍🤝‍🧑 接客数部門</button>
+            </div>
+            <div class="card rank-id-card">
+              <input id="rankNameInput" maxlength="12" placeholder="なまえ(12文字まで)">
+              <button class="buy-btn" id="rankSaveBtn">保存して<br>送信</button>
+            </div>
+            <div class="rank-me" id="rankMeText">なまえを入力して送信すると、世界ランキングに参加できます。</div>
+            <button class="buy-btn rank-refresh-btn" id="rankRefreshBtn">🔄 更新</button>
+            <div class="rank-list" id="rankListBox">読み込み中…</div>
+          </div>
           <div class="pc-panel" id="panelSettings"></div>
         </div>
       </div>
@@ -105,6 +119,7 @@
 
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/game.js" defer></script>
 </body>
 </html>

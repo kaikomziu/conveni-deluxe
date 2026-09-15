@@ -197,6 +197,33 @@ body{
 .tag-locked{font-size:10px; background:#ffe8d1; color:var(--orange-dark); padding:1px 7px; border-radius:999px; font-weight:700;}
 .tag-new{font-size:10px; background:#ffe1e1; color:var(--danger); padding:1px 7px; border-radius:999px; font-weight:700;}
 
+.rank-dept-tabs{display:flex; gap:6px;}
+.rank-dept-btn{
+  flex:1; padding:9px 6px; border:none; border-radius:10px; font-size:12px; font-weight:700;
+  background:#fff; color:var(--sub); box-shadow:var(--shadow); cursor:pointer;
+}
+.rank-dept-btn.active{background:var(--orange); color:#fff;}
+.rank-id-card{padding:10px;}
+#rankNameInput{
+  flex:1; min-width:0; border:1px solid var(--line); border-radius:10px; padding:0 10px;
+  font-size:13px; font-family:inherit;
+}
+.rank-me{
+  background:var(--panel); border-radius:12px; padding:10px 14px; font-size:12.5px;
+  box-shadow:var(--shadow); text-align:center; line-height:1.5;
+}
+.rank-refresh-btn{width:100%;}
+.rank-list{display:flex; flex-direction:column; gap:6px;}
+.rankrow{
+  display:flex; align-items:center; gap:10px; background:var(--panel); border-radius:10px;
+  padding:9px 12px; box-shadow:var(--shadow); font-size:13px; border:2px solid transparent;
+}
+.rankrow.me{border-color:var(--green);}
+.rankrow .rk{width:26px; flex:0 0 auto; font-weight:800; color:var(--sub); text-align:center; font-size:12px;}
+.rankrow .rn{flex:1; min-width:0; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.rankrow .rv{flex:0 0 auto; font-weight:800; color:var(--green-dark); text-align:right; font-size:12px;}
+.rank-empty{text-align:center; color:var(--sub); font-size:13px; padding:10px;}
+
 .settings-btn{
   border:none; border-radius:10px; padding:12px; font-weight:800; font-size:13px;
   background:var(--danger); color:#fff; cursor:pointer; width:100%;

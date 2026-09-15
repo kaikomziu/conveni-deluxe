@@ -226,7 +226,10 @@ function loseCustomer(){
    Main tick
    ========================================================= */
 const TICK = 100;
+let rankSubmitAcc = 0;
 function tick(){
+  rankSubmitAcc += TICK;
+  if(rankSubmitAcc > 45000){ rankSubmitAcc = 0; tryRankSubmit(false); }
   // spawn
   S.spawnTimer -= TICK;
   if(S.spawnTimer <= 0){
@@ -483,6 +486,7 @@ document.querySelectorAll('.pc-tab-btn').forEach(btn=>{
     btn.classList.add('active');
     document.querySelectorAll('.pc-panel').forEach(v=>v.classList.remove('active'));
     document.getElementById('panel'+capitalize(btn.dataset.pctab)).classList.add('active');
+    if(btn.dataset.pctab==='ranking') renderRankingPanel();
   });
 });
 function capitalize(s){ return s.charAt(0).toUpperCase()+s.slice(1); }
@@ -727,10 +731,146 @@ $('#tutorialSkip').addEventListener('click', closeTutorial);
 $('#helpBtn').addEventListener('click', openTutorial);
 
 /* =========================================================
+   Online Ranking (Supabase, shared project — see other kaikomziu.github.io games)
+   ========================================================= */
+const RANK_TABLE = 'conveni_deluxe_scores';
+const RANK_URL = 'https://kifnzvktwbomxthzvvgy.supabase.co';
+const RANK_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtpZm56dmt0d2JvbXh0aHp2dmd5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc4MzgxMzgsImV4cCI6MjA5MzQxNDEzOH0.M7nXP-u--6J_6rRpgz1cJj21_7KX6MtfTmZy77Xf_IE';
+const RANK_DEPTS = {
+  earned: { column:'total_earned', label:'累計売上', icon:'💴', fmt:v=>fmtMoneyFull(v) },
+  served: { column:'customers_served', label:'接客数', icon:'🧑‍🤝‍🧑', fmt:v=>`${Math.floor(v).toLocaleString()}人` },
+};
+let rankClient = null;
+function sbClient(){
+  if(rankClient) return rankClient;
+  if(!window.supabase || !window.supabase.createClient) return null;
+  // kaikomziu.github.io is a shared origin across all these games (shared localStorage),
+  // so never let this pick up another game's Supabase login session.
+  rankClient = window.supabase.createClient(RANK_URL, RANK_KEY, {
+    auth: { persistSession:false, autoRefreshToken:false, detectSessionInUrl:false },
+    global: { headers: { Authorization:'Bearer '+RANK_KEY } },
+  });
+  return rankClient;
+}
+async function rankFetchTop(column, limit){
+  const c = sbClient(); if(!c) throw new Error('接続できませんでした');
+  const { data, error } = await c.from(RANK_TABLE)
+    .select('name,total_earned,customers_served')
+    .order(column, { ascending:false })
+    .limit(limit);
+  if(error) throw error;
+  return data || [];
+}
+async function rankEstimate(column, value){
+  const c = sbClient(); if(!c) return null;
+  const { count, error } = await c.from(RANK_TABLE)
+    .select('id', { count:'exact', head:true })
+    .gt(column, value);
+  if(error) return null;
+  return (count||0) + 1;
+}
+async function rankSubmit(id, name, totalEarned, customersServed){
+  const c = sbClient(); if(!c) throw new Error('接続できませんでした');
+  const cleanName = (String(name||'').trim().slice(0,12)) || '名無し';
+  const row = {
+    id, name: cleanName,
+    total_earned: Math.max(0, totalEarned||0),
+    customers_served: Math.max(0, Math.floor(customersServed||0)),
+    updated_at: new Date().toISOString(),
+  };
+  const { error } = await c.from(RANK_TABLE).upsert(row, { onConflict:'id' });
+  if(error) throw error;
+}
+function escHtml(s){
+  return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+let rankPid = null, rankName = '';
+function loadRankIdentity(){
+  try{
+    rankPid = localStorage.getItem('conveniDeluxe_pid');
+    if(!rankPid){
+      rankPid = crypto.randomUUID ? crypto.randomUUID() : 'cd-'+Date.now()+'-'+Math.random().toString(36).slice(2);
+      localStorage.setItem('conveniDeluxe_pid', rankPid);
+    }
+  }catch(e){ rankPid = rankPid || ('cd-'+Date.now()); }
+  try{ rankName = localStorage.getItem('conveniDeluxe_name') || ''; }catch(e){}
+  const input = $('#rankNameInput');
+  if(input) input.value = rankName;
+}
+let rankLastSubmit = { earned:-1, served:-1 };
+let rankSubmitting = false;
+async function tryRankSubmit(force){
+  if(!rankPid || !rankName) return;
+  const grew = S.totalEarned > rankLastSubmit.earned * 1.02 + 1 || S.customersServed > rankLastSubmit.served;
+  if(!force && !grew) return;
+  if(rankSubmitting) return;
+  rankSubmitting = true;
+  try{
+    await rankSubmit(rankPid, rankName, S.totalEarned, S.customersServed);
+    rankLastSubmit.earned = S.totalEarned;
+    rankLastSubmit.served = S.customersServed;
+  }catch(e){ /* offline etc: silently retry later */ }
+  rankSubmitting = false;
+}
+
+let rankDept = 'earned';
+async function renderRankingPanel(){
+  const requestedDept = rankDept;
+  const dept = RANK_DEPTS[requestedDept];
+  const meBox = $('#rankMeText');
+  const listBox = $('#rankListBox');
+  const myValue = dept.column==='total_earned' ? S.totalEarned : S.customersServed;
+  if(!rankName){
+    meBox.textContent = 'なまえを入力して送信すると、世界ランキングに参加できます。';
+  } else {
+    meBox.innerHTML = `<b>${escHtml(rankName)}</b> の${dept.label}順位を取得中…`;
+    rankEstimate(dept.column, myValue).then(r=>{
+      if(rankDept !== requestedDept) return;
+      meBox.innerHTML = r
+        ? `<b>${escHtml(rankName)}</b> の${dept.icon}${dept.label}推定順位: <b>${r.toLocaleString()}位</b>（${dept.fmt(myValue)}）`
+        : `順位を取得できませんでした（${dept.fmt(myValue)}）`;
+    }).catch(()=>{ if(rankDept===requestedDept) meBox.textContent = '順位の取得に失敗しました。'; });
+  }
+  listBox.textContent = '読み込み中…';
+  try{
+    const top = await rankFetchTop(dept.column, 50);
+    if(rankDept !== requestedDept) return;
+    listBox.innerHTML = top.length ? top.map((r,i)=>`
+      <div class="rankrow${r.name===rankName?' me':''}">
+        <span class="rk">${i+1}</span>
+        <span class="rn">${escHtml(r.name)}</span>
+        <span class="rv">${dept.fmt(dept.column==='total_earned'?r.total_earned:r.customers_served)}</span>
+      </div>`).join('') : '<div class="rank-empty">まだ誰も記録していません。あなたが一番乗りです！</div>';
+  }catch(e){
+    if(rankDept === requestedDept) listBox.innerHTML = '<div class="rank-empty">読み込みに失敗しました。「更新」を押して再試行してください。</div>';
+  }
+}
+
+document.querySelectorAll('.rank-dept-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.rank-dept-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    rankDept = btn.dataset.dept;
+    renderRankingPanel();
+  });
+});
+$('#rankSaveBtn').addEventListener('click', ()=>{
+  const v = ($('#rankNameInput').value || '').trim().slice(0,12);
+  rankName = v;
+  try{ localStorage.setItem('conveniDeluxe_name', rankName); }catch(e){}
+  $('#rankNameInput').value = rankName;
+  tryRankSubmit(true).then(renderRankingPanel);
+});
+$('#rankRefreshBtn').addEventListener('click', renderRankingPanel);
+
+/* =========================================================
    Boot
    ========================================================= */
 render();
 renderPC();
+loadRankIdentity();
+tryRankSubmit(true);
 if(!S.tutorialSeen){
   openTutorial();
 } else {
