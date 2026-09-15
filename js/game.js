@@ -197,6 +197,7 @@ function spawnCustomer(){
     avatar: isVIP ? VIP_AVATARS[Math.floor(Math.random()*VIP_AVATARS.length)] : AVATARS[Math.floor(Math.random()*AVATARS.length)],
     patienceMax: basePatience,
     patienceLeft: basePatience,
+    arrivalGrace: 500, // ms the customer spends visibly walking up before they can be called to a register
   });
 }
 
@@ -213,6 +214,7 @@ function completeSale(lane){
   if(cust.isVIP) toast(`👑 VIPが ${product.name}${qtyTxt} を購入！ +¥${price.toLocaleString()}`, 'vip');
   lane.customer = null;
   lane.progress = 0;
+  lane.holding = false; // require a fresh press for the next customer
 }
 
 function loseCustomer(){
@@ -232,10 +234,12 @@ function tick(){
     const repBonus = 1 - (S.reputation/100)*0.15;
     S.spawnTimer = spawnInterval(S.equip.spawnRate) * repBonus * (0.8 + Math.random()*0.4);
   }
-  // queue patience
+  // queue patience + arrival grace (customers must be visibly waiting at least a moment
+  // before they can be called to a register, so they never seem to "teleport" straight to the scanner)
   for(let i=S.queue.length-1; i>=0; i--){
     const c = S.queue[i];
     c.patienceLeft -= TICK;
+    if(c.arrivalGrace > 0) c.arrivalGrace -= TICK;
     if(c.patienceLeft <= 0){
       S.queue.splice(i,1);
       loseCustomer();
@@ -245,7 +249,7 @@ function tick(){
   // lanes
   for(let i=0; i<S.registerCount; i++){
     const lane = S.lanes[i];
-    if(!lane.customer && S.queue.length>0){
+    if(!lane.customer && S.queue.length>0 && S.queue[0].arrivalGrace<=0){
       lane.customer = S.queue.shift();
       lane.progress = 0;
     }
@@ -310,6 +314,7 @@ function renderQueue(){
     for(const c of S.queue){
       const p = PRODUCT_MAP[c.itemId];
       const div = document.createElement('div');
+      div.className = 'cust cust-new';
       div.dataset.custId = c.id;
       div.innerHTML = `
         ${c.isVIP?'<div class="vip-badge">👑</div>':''}
@@ -319,6 +324,7 @@ function renderQueue(){
       `;
       updateCustEl(div, c);
       queueRow.appendChild(div);
+      setTimeout(()=>div.classList.remove('cust-new'), 220);
     }
   } else {
     const children = queueRow.children;
@@ -327,9 +333,14 @@ function renderQueue(){
     }
   }
 }
+// Only ever toggles individual modifier classes (never overwrites the whole
+// className string) so the one-shot pop-in animation is never restarted by
+// the per-tick patience-bar update.
 function updateCustEl(div, c){
   const ratio = c.patienceLeft / c.patienceMax;
-  div.className = 'cust' + (c.isVIP?' vip':'') + (ratio<0.5?' warn':'') + (ratio<0.22?' danger':'');
+  div.classList.toggle('vip', !!c.isVIP);
+  div.classList.toggle('warn', ratio<0.5);
+  div.classList.toggle('danger', ratio<0.22);
   const fill = div.querySelector('.patience-fill');
   if(fill) fill.style.width = Math.max(0,ratio*100) + '%';
 }
@@ -374,6 +385,10 @@ function renderLanes(){
         `;
       }
       replaceLaneEl(i, div);
+      if(lane.customer){
+        div.classList.add('lane-arrive');
+        setTimeout(()=>div.classList.remove('lane-arrive'), 500);
+      }
     }
     // cosmetic per-tick updates (no structural rebuild)
     const el = S.lanes[i]._el;
@@ -381,6 +396,8 @@ function renderLanes(){
       const ring = el.querySelector('.scan-ring');
       if(ring) ring.style.setProperty('--p', lane.progress);
       el.classList.toggle('pressed', !!lane.holding);
+      const priceEl = el.querySelector('.lane-price');
+      if(priceEl) priceEl.textContent = fmtMoneyFull(custPrice(lane.customer));
     }
   }
 }
@@ -404,14 +421,24 @@ function laneFromEvent(e){
 }
 lanesRow.addEventListener('pointerdown', e=>{
   const lane = laneFromEvent(e);
-  if(lane && lane.customer){ lane.holding = true; e.target.closest('.lane').classList.add('pressed'); }
+  const laneEl = e.target.closest('.lane');
+  if(lane && lane.customer){
+    lane.holding = true;
+    laneEl.classList.add('pressed');
+    // keep receiving this pointer's move/up even if the finger drifts off the
+    // element slightly (very common on touch) so the scan doesn't cancel itself
+    if(laneEl.setPointerCapture){
+      try{ laneEl.setPointerCapture(e.pointerId); }catch(err){}
+    }
+  }
 });
 function releaseAll(){
   for(const lane of S.lanes) lane.holding = false;
   document.querySelectorAll('.lane.pressed').forEach(el=>el.classList.remove('pressed'));
 }
+// Only a genuine release (pointerup/pointercancel) or losing the window's focus stops
+// the scan — NOT pointerleave, which fires from small finger drift even while captured.
 lanesRow.addEventListener('pointerup', releaseAll);
-lanesRow.addEventListener('pointerleave', releaseAll, true);
 lanesRow.addEventListener('pointercancel', releaseAll);
 window.addEventListener('blur', releaseAll);
 

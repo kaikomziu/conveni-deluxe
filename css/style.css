@@ -87,8 +87,8 @@ body{
 }
 .cust{
   flex:0 0 auto; width:58px; text-align:center; position:relative;
-  animation:popIn .18s ease;
 }
+.cust.cust-new{animation:popIn .18s ease;}
 .cust .avatar{
   font-size:28px; width:44px; height:44px; line-height:44px; margin:0 auto;
   background:#f0f4f1; border-radius:50%; border:2px solid var(--line);
@@ -141,6 +141,12 @@ body{
   background:#e7f1ff; color:#2b6fd1; padding:2px 8px; border-radius:999px;
 }
 .lane.pressed{background:#eafff2;}
+.lane.lane-arrive{animation:laneArrive .5s ease;}
+@keyframes laneArrive{
+  0%{box-shadow:0 0 0 0 rgba(10,166,110,.45); transform:scale(1);}
+  30%{box-shadow:0 0 0 8px rgba(10,166,110,0); transform:scale(1.02);}
+  100%{box-shadow:0 0 0 0 rgba(10,166,110,0); transform:scale(1);}
+}
 .lane .vip-badge-lane{position:absolute; top:8px; left:10px; font-size:14px;}
 
 /* ---- shop stats ---- */
